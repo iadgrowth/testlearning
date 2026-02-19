@@ -3,6 +3,7 @@ from django.http import HttpResponse
 
 
 def index(request):
+    print('Index view called')
     return HttpResponse('Fish and Chips')
 
 def test_response(request):
