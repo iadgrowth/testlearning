@@ -25,6 +25,8 @@ class CallReport(models.Model):
 
     # Meta
     created_at = models.DateTimeField(auto_now_add=True)
+    note = models.CharField(max_length=1500, blank=True)
+
 
     def __str__(self):
         return f"{self.company_name} - {self.last_name} ({self.disposition})"

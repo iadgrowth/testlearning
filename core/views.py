@@ -1,7 +1,8 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from calls.models import CallReport
+from core.models import CallReport
+import json
 
 def index(request):
     print('Index view called')
@@ -13,7 +14,17 @@ def test_response(request):
 @csrf_exempt  # <--- Add this decorator
 def test_post(request):
     print('Received POST request with data:', request.body)
-    create_report_from_payload(request.body)
+    
+    # 1. Open the "envelope" (convert bytes to dictionary)
+    try:
+        # request.body is bytes, json.loads turns it into a dict
+        payload_dict = json.loads(request.body)
+    except json.JSONDecodeError:
+        return HttpResponse("Invalid JSON", status=400)
+
+    # 2. Pass the dictionary, NOT the raw body, to your function
+    create_report_from_payload(payload_dict)
+    
     return HttpResponse("Received!", status=200)
 
 
@@ -29,6 +40,7 @@ def create_report_from_payload(payload):
         duration=int(call_details.get('duration', 0)),
         disposition=call_details.get('disposition'),
         recording_url=call_details.get('recordingurl'),
+        note=data.get('note', ''),
         
         # Mapping Contact/Result Details
         powerlist_id=contact_details.get('powerlistId'),
