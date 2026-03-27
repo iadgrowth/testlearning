@@ -26,6 +26,7 @@ class CallReport(models.Model):
     # Meta
     created_at = models.DateTimeField(auto_now_add=True)
     note = models.CharField(max_length=1500, blank=True)
+    powerlist_notes = models.CharField(max_length=1500, blank=True)  # NEW FIELD
 
 
     def __str__(self):
