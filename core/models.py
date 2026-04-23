@@ -19,6 +19,7 @@ class CallReport(models.Model):
     company_name = models.CharField(max_length=255, blank=True)
 
     # Supplemental Context (from ssData)
+    ss_data_raw = models.JSONField(default=dict, blank=True)
     location = models.CharField(max_length=255, blank=True)
     company_domain = models.CharField(max_length=255, blank=True)
     linkedin_url = models.URLField(max_length=500, blank=True)
