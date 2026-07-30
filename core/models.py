@@ -1,4 +1,42 @@
+from urllib.parse import urlparse
 from django.db import models
+from django.contrib.auth.models import User
+
+
+class Customer(models.Model):
+    name = models.CharField(max_length=255)
+    website = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def clean(self):
+        if self.website:
+            raw = self.website if '://' in self.website else f'https://{self.website}'
+            parsed = urlparse(raw)
+            self.website = parsed.netloc.removeprefix('www.').lower()
+
+    def __str__(self):
+        return f"{self.name} ({self.website})"
+
+
+class CustomerPowerlist(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='powerlists')
+    powerlist_id = models.IntegerField()
+    campaign_name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.customer.name} → {self.campaign_name} ({self.powerlist_id})"
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='users')
+
+    def __str__(self):
+        return f"{self.user.username} ({self.customer.name})"
+
 
 class CallReport(models.Model):
     # Call Performance Data

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load core_filters %}
+
+{% block content %}
+<div style="max-width:1200px;margin:0 auto;padding:24px 16px;">
+
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;">
+    <h2 style="margin:0;">{{ customer.name }}</h2>
+    <a href="/logout/" style="font-size:14px;color:#666;text-decoration:none;">Sign Out</a>
+  </div>
+
+  <!-- KPI Cards -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;">
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px;text-align:center;">
+      <div style="font-size:32px;font-weight:700;color:#2c3e50;">{{ kpis.total_dials }}</div>
+      <div style="font-size:13px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.05em;">Total Dials</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px;text-align:center;">
+      <div style="font-size:32px;font-weight:700;color:#27ae60;">{{ kpis.conversations }}</div>
+      <div style="font-size:13px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.05em;">Conversations</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px;text-align:center;">
+      <div style="font-size:32px;font-weight:700;color:#2980b9;">{{ kpis.meetings }}</div>
+      <div style="font-size:13px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.05em;">Meetings Booked</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:20px;text-align:center;">
+      <div style="font-size:32px;font-weight:700;color:#8e44ad;">{{ kpis.info_requests }}</div>
+      <div style="font-size:13px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.05em;">Info Requests</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+
+    <!-- Campaign Selector -->
+    <select onchange="window.location=this.value"
+            style="padding:8px 12px;border:1px solid #ccc;border-radius:4px;font-size:14px;background:#fff;">
+      <option value="/dashboard/{% if show_all %}?show_all=1{% endif %}">All Campaigns</option>
+      {% for campaign in campaigns %}
+        <option value="/dashboard/?powerlist_id={{ campaign.powerlist_id }}{% if show_all %}&show_all=1{% endif %}"
+                {% if campaign.powerlist_id == active_powerlist_id %}selected{% endif %}>
+          {{ campaign.campaign_name }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <!-- All Dials Toggle -->
+    {% if show_all %}
+      <a href="/dashboard/{% if active_powerlist_id %}?powerlist_id={{ active_powerlist_id }}{% endif %}"
+         style="font-size:13px;padding:8px 14px;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;text-decoration:none;color:#333;">
+        Show Conversations Only
+      </a>
+    {% else %}
+      <a href="/dashboard/?show_all=1{% if active_powerlist_id %}&powerlist_id={{ active_powerlist_id }}{% endif %}"
+         style="font-size:13px;padding:8px 14px;border:1px solid #ccc;border-radius:4px;background:#f5f5f5;text-decoration:none;color:#333;">
+        Expand to All Dials
+      </a>
+    {% endif %}
+
+  </div>
+
+  <!-- Conversation Log Table -->
+  <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
+    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+      <thead>
+        <tr style="background:#f9f9f9;border-bottom:1px solid #e0e0e0;">
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Date</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Full Name</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Title</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Company</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Phone Number</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Email Address</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Outcome</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Call Notes</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Recording</th>
+          <th style="padding:12px 16px;text-align:left;font-weight:600;color:#555;">Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in call_records %}
+        <tr style="border-bottom:1px solid #f0f0f0;">
+          <td style="padding:12px 16px;white-space:nowrap;color:#555;">
+            {{ record.call_date|date:"M j, Y g:i A" }}
+          </td>
+          <td style="padding:12px 16px;">
+            {{ record.first_name }} {{ record.last_name }}
+          </td>
+             <td style="padding:12px 16px;">
+            {{ record.title }}
+          </td>
+          <td style="padding:12px 16px;">{{ record.company_name }}</td>
+          <td style="padding:12px 16px;">{{ record.phone_number }}</td>
+          <td style="padding:12px 16px;">{{ record.email }}</td>
+          <td style="padding:12px 16px;">{{ record.disposition }}</td>
+          <td style="padding:12px 16px;">{{ record.powerlist_notes }}</td>
+          <td style="padding:12px 16px;">
+            {% if record.recording_url %}
+              <audio controls preload="none" style="height:32px;width:220px;">
+                <source src="{{ record.recording_url }}" type="audio/mpeg">
+              </audio>
+            {% else %}
+              <span style="color:#bbb;font-size:12px;">—</span>
+            {% endif %}
+          </td>
+          <td style="padding:12px 16px;white-space:nowrap;">
+            {{ record.duration|duration_display }}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" style="padding:32px;text-align:center;color:#aaa;">No records found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}
