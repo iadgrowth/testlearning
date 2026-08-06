@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav style="margin-bottom:1.5rem;">
+  <strong>Customer Admin</strong>
+  &nbsp;|&nbsp;
+  <a href="{% url 'manage_home' %}">← All Customers</a>
+</nav>
+
+{% if messages %}
+  {% for message in messages %}
+    <p style="color: {% if message.tags == 'error' %}red{% else %}green{% endif %};">
+      {{ message }}
+    </p>
+  {% endfor %}
+{% endif %}
+
+{% block manage_content %}{% endblock %}
+{% endblock %}

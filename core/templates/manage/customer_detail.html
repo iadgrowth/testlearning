@@ -1,0 +1,119 @@
+{% extends "manage/base.html" %}
+
+{% block manage_content %}
+<h2>{{ customer.name }}</h2>
+
+{% if not is_ready %}
+<div style="border:1px solid orange; padding:0.75rem; margin-bottom:1rem;">
+  <strong>&#9888; This customer is not ready to log in yet:</strong>
+  <ul>
+    <li>{% if checklist.has_powerlists %}&#10003;{% else %}&#10007;{% endif %} Campaigns — {% if not checklist.has_powerlists %}add at least one Powerlist ID{% else %}OK{% endif %}</li>
+    <li>{% if checklist.has_users %}&#10003;{% else %}&#10007;{% endif %} User account — {% if not checklist.has_users %}create at least one user{% else %}OK{% endif %}</li>
+  </ul>
+</div>
+{% endif %}
+
+<!-- Section 1: Customer Info -->
+<h3>Customer Info</h3>
+<form method="post">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <p>
+    <label>Company Name<br>
+      {{ form.name }}
+      {{ form.name.errors }}
+    </label>
+  </p>
+  <p>
+    <label>Website<br>
+      {{ form.website }}
+      {{ form.website.errors }}
+    </label>
+  </p>
+  <button type="submit">Save Changes</button>
+</form>
+
+<hr>
+
+<!-- Section 2: Campaigns (Powerlists) -->
+<h3>Campaigns</h3>
+{% if powerlists %}
+  <table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Powerlist ID</th>
+        <th>Campaign Name</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for pl in powerlists %}
+      <tr>
+        <td>{{ pl.powerlist_id }}</td>
+        <td>{{ pl.campaign_name }}</td>
+        <td>
+          <form method="post" action="{% url 'manage_powerlist_delete' customer.id pl.id %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" onclick="return confirm('Remove campaign \'{{ pl.campaign_name }}\'?')">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No campaigns assigned yet.</p>
+{% endif %}
+
+<form method="post" action="{% url 'manage_powerlist_add' customer.id %}" style="margin-top:0.75rem;">
+  {% csrf_token %}
+  {{ powerlist_form.non_field_errors }}
+  <label>Powerlist ID {{ powerlist_form.powerlist_id }}</label>
+  &nbsp;
+  <label>Campaign Name {{ powerlist_form.campaign_name }}</label>
+  &nbsp;
+  <button type="submit">Add Campaign</button>
+</form>
+
+<hr>
+
+<!-- Section 3: User Accounts -->
+<h3>User Accounts</h3>
+{% if users %}
+  <table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for profile in users %}
+      <tr>
+        <td>{{ profile.user.username }}</td>
+        <td>{{ profile.user.email }}</td>
+        <td>
+          <form method="post" action="{% url 'manage_user_reset_password' customer.id profile.user.id %}" style="display:inline;">
+            {% csrf_token %}
+            <input type="password" name="new_password" placeholder="New password" required>
+            <input type="password" name="confirm_password" placeholder="Confirm" required>
+            <button type="submit">Reset Password</button>
+          </form>
+          &nbsp;
+          <form method="post" action="{% url 'manage_user_delete' customer.id profile.user.id %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" onclick="return confirm('Delete user \'{{ profile.user.username }}\'?')">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No user accounts yet.</p>
+{% endif %}
+
+<p><a href="{% url 'manage_user_new' customer.id %}">+ Add User</a></p>
+
+{% endblock %}

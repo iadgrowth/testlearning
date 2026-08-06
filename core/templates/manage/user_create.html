@@ -1,0 +1,36 @@
+{% extends "manage/base.html" %}
+
+{% block manage_content %}
+<h2>Add User — {{ customer.name }}</h2>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <p>
+    <label>Username<br>
+      {{ form.username }}
+      {{ form.username.errors }}
+    </label>
+  </p>
+  <p>
+    <label>Email (optional)<br>
+      {{ form.email }}
+      {{ form.email.errors }}
+    </label>
+  </p>
+  <p>
+    <label>Password<br>
+      {{ form.password }}
+      {{ form.password.errors }}
+    </label>
+  </p>
+  <p>
+    <label>Confirm Password<br>
+      {{ form.confirm_password }}
+      {{ form.confirm_password.errors }}
+    </label>
+  </p>
+  <button type="submit">Create User</button>
+  &nbsp;<a href="{% url 'manage_customer_detail' customer.id %}">Cancel</a>
+</form>
+{% endblock %}

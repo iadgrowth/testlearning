@@ -1,10 +1,15 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.models import User
+from django.contrib import messages
 from django.db.models import Count, Q
-from core.models import CallReport, CustomerPowerlist
+from core.models import CallReport, Customer, CustomerPowerlist, UserProfile
+from core.forms import CustomerForm, CustomerPowerlistForm, UserCreateForm, PasswordResetForm
 import json
+
+staff_required = user_passes_test(lambda u: u.is_staff, login_url='/login/')
 
 def index(request):
     return HttpResponse('Fish and Chips')
@@ -65,6 +70,143 @@ def test_post(request):
     except Exception as e:
         print(f"Error: {e}")
         return HttpResponse("Server Error", status=500)
+
+# --- Management views (staff only) ---
+
+@staff_required
+def manage_home(request):
+    customers = Customer.objects.annotate(
+        powerlist_count=Count('powerlists', distinct=True),
+        user_count=Count('users', distinct=True),
+    )
+    return render(request, 'manage/home.html', {'customers': customers})
+
+
+@staff_required
+def manage_customer_new(request):
+    if request.method == 'POST':
+        form = CustomerForm(request.POST)
+        if form.is_valid():
+            customer = form.save()
+            messages.success(request, f"Customer '{customer.name}' created.")
+            return redirect('manage_customer_detail', customer_id=customer.id)
+    else:
+        form = CustomerForm()
+    return render(request, 'manage/customer_new.html', {'form': form})
+
+
+@staff_required
+def manage_customer_detail(request, customer_id):
+    customer = get_object_or_404(Customer, id=customer_id)
+
+    if request.method == 'POST':
+        form = CustomerForm(request.POST, instance=customer)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Customer updated.")
+            return redirect('manage_customer_detail', customer_id=customer.id)
+    else:
+        form = CustomerForm(instance=customer)
+
+    powerlist_form = CustomerPowerlistForm()
+    powerlists = customer.powerlists.all()
+    users = customer.users.select_related('user').all()
+    checklist = {
+        'has_powerlists': customer.powerlists.exists(),
+        'has_users': customer.users.exists(),
+    }
+    is_ready = all(checklist.values())
+
+    return render(request, 'manage/customer_detail.html', {
+        'customer': customer,
+        'form': form,
+        'powerlist_form': powerlist_form,
+        'powerlists': powerlists,
+        'users': users,
+        'checklist': checklist,
+        'is_ready': is_ready,
+    })
+
+
+@staff_required
+def manage_powerlist_add(request, customer_id):
+    customer = get_object_or_404(Customer, id=customer_id)
+    if request.method == 'POST':
+        form = CustomerPowerlistForm(request.POST)
+        if form.is_valid():
+            pid = form.cleaned_data['powerlist_id']
+            if customer.powerlists.filter(powerlist_id=pid).exists():
+                messages.error(request, f"Powerlist ID {pid} is already assigned to this customer.")
+            else:
+                pl = form.save(commit=False)
+                pl.customer = customer
+                pl.save()
+                messages.success(request, f"Campaign '{pl.campaign_name}' added.")
+        else:
+            messages.error(request, "Invalid campaign data — check the fields and try again.")
+    return redirect('manage_customer_detail', customer_id=customer_id)
+
+
+@staff_required
+def manage_powerlist_delete(request, customer_id, cp_id):
+    customer = get_object_or_404(Customer, id=customer_id)
+    cp = get_object_or_404(CustomerPowerlist, id=cp_id, customer=customer)
+    if request.method == 'POST':
+        name = cp.campaign_name
+        cp.delete()
+        messages.success(request, f"Campaign '{name}' removed.")
+    return redirect('manage_customer_detail', customer_id=customer_id)
+
+
+@staff_required
+def manage_user_new(request, customer_id):
+    customer = get_object_or_404(Customer, id=customer_id)
+    if request.method == 'POST':
+        form = UserCreateForm(request.POST)
+        if form.is_valid():
+            user = User.objects.create_user(
+                username=form.cleaned_data['username'],
+                email=form.cleaned_data.get('email', ''),
+                password=form.cleaned_data['password'],
+            )
+            UserProfile.objects.create(user=user, customer=customer)
+            messages.success(request, f"User '{user.username}' created.")
+            return redirect('manage_customer_detail', customer_id=customer_id)
+    else:
+        form = UserCreateForm()
+    return render(request, 'manage/user_create.html', {'form': form, 'customer': customer})
+
+
+@staff_required
+def manage_user_reset_password(request, customer_id, user_id):
+    customer = get_object_or_404(Customer, id=customer_id)
+    profile = get_object_or_404(UserProfile, user_id=user_id, customer=customer)
+    if request.method == 'POST':
+        form = PasswordResetForm(request.POST)
+        if form.is_valid():
+            profile.user.set_password(form.cleaned_data['new_password'])
+            profile.user.save()
+            messages.success(request, f"Password for '{profile.user.username}' updated.")
+        else:
+            messages.error(request, "Passwords did not match — try again.")
+    return redirect('manage_customer_detail', customer_id=customer_id)
+
+
+@staff_required
+def manage_user_delete(request, customer_id, user_id):
+    customer = get_object_or_404(Customer, id=customer_id)
+    profile = get_object_or_404(UserProfile, user_id=user_id, customer=customer)
+    if request.method == 'POST':
+        if profile.user == request.user:
+            messages.error(request, "You cannot delete your own account.")
+            return redirect('manage_customer_detail', customer_id=customer_id)
+        username = profile.user.username
+        profile.user.delete()
+        messages.success(request, f"User '{username}' deleted.")
+    return redirect('manage_customer_detail', customer_id=customer_id)
+
+
+# --- Webhook ---
 
 def create_report_from_payload(payload):
     data = payload.get('data', {})
