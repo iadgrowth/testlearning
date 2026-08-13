@@ -17,6 +17,8 @@ def index(request):
 
 @login_required
 def dashboard(request):
+    if request.user.is_staff:
+        return redirect('manage_home')
     customer = request.user.profile.customer
     campaigns = customer.powerlists.all()
     all_powerlist_ids = list(campaigns.values_list('powerlist_id', flat=True))
@@ -40,12 +42,29 @@ def dashboard(request):
         'info_requests': base_qs.filter(disposition__icontains='information').count(),
     }
 
-    # Table rows — default to conversations only, expand with ?show_all=1
+    # Table rows — default to conversations only, expand with show_all
     show_all = request.GET.get('show_all') == '1'
     if show_all:
         call_records = base_qs
     else:
         call_records = base_qs.filter(disposition__icontains='conversation')
+
+    # Additional filters (applied to table rows only, not KPIs)
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    active_outcome = request.GET.get('outcome', '')
+    has_notes = request.GET.get('has_notes', '')
+
+    if date_from:
+        call_records = call_records.filter(call_date__date__gte=date_from)
+    if date_to:
+        call_records = call_records.filter(call_date__date__lte=date_to)
+    if active_outcome:
+        call_records = call_records.filter(disposition__iexact=active_outcome)
+    if has_notes == '1':
+        call_records = call_records.exclude(powerlist_notes='')
+
+    outcomes = base_qs.values_list('disposition', flat=True).distinct().order_by('disposition')
 
     return render(request, 'dashboard.html', {
         'kpis': kpis,
@@ -54,6 +73,11 @@ def dashboard(request):
         'active_powerlist_id': active_powerlist_id,
         'show_all': show_all,
         'customer': customer,
+        'outcomes': outcomes,
+        'date_from': date_from,
+        'date_to': date_to,
+        'active_outcome': active_outcome,
+        'has_notes': has_notes,
     })
 
 def test_response(request):
