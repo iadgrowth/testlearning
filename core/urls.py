@@ -5,6 +5,7 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('iad/', views.test_response, name='iad'),
     path('kixie/test', views.test_post, name='webhook_test'),
+    path('kixie/dial-attempt', views.dial_attempt_webhook, name='webhook_dial_attempt'),
     path('dashboard/', views.dashboard, name='dashboard'),
 
     # Management (staff only)

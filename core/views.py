@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.db.models import Count, Q
-from core.models import CallReport, Customer, CustomerPowerlist, UserProfile
+from core.models import CallReport, Customer, CustomerPowerlist, DialAttempt, UserProfile
 from core.forms import CustomerForm, CustomerPowerlistForm, UserCreateForm, PasswordResetForm
 import json
 
@@ -33,10 +33,11 @@ def dashboard(request):
 
     scoped_ids = [active_powerlist_id] if active_powerlist_id else all_powerlist_ids
     base_qs = CallReport.objects.filter(powerlist_id__in=scoped_ids)
+    dial_qs = DialAttempt.objects.filter(powerlist_id__in=scoped_ids, call_type='outgoing')
 
     # KPIs
     kpis = {
-        'total_dials': base_qs.count(),
+        'total_dials': dial_qs.count(),
         'conversations': base_qs.filter(disposition__icontains='conversation').count(),
         'meetings': base_qs.filter(disposition__icontains='meeting').count(),
         'info_requests': base_qs.filter(disposition__icontains='information').count(),
@@ -88,6 +89,18 @@ def test_post(request):
     try:
         payload_dict = json.loads(request.body)
         create_report_from_payload(payload_dict)
+        return HttpResponse("Received!", status=200)
+    except json.JSONDecodeError:
+        return HttpResponse("Invalid JSON", status=400)
+    except Exception as e:
+        print(f"Error: {e}")
+        return HttpResponse("Server Error", status=500)
+
+@csrf_exempt
+def dial_attempt_webhook(request):
+    try:
+        payload_dict = json.loads(request.body)
+        create_dial_attempt_from_payload(payload_dict)
         return HttpResponse("Received!", status=200)
     except json.JSONDecodeError:
         return HttpResponse("Invalid JSON", status=400)
@@ -264,5 +277,30 @@ def create_report_from_payload(payload):
         email=contact_details.get('email'),
 
         # STORE AS JSON OBJECT
-        ss_data_raw=ss_raw, 
+        ss_data_raw=ss_raw,
     )
+
+
+def create_dial_attempt_from_payload(payload):
+    data = payload.get('data', {})
+    if data.get('hookevent') != 'startcall':
+        return None  # ignore other event types if Kixie ever sends them to this URL
+
+    call_details = data.get('callDetails', {})
+    raw_pid = call_details.get('powerlistid')
+    powerlist_id = int(raw_pid) if raw_pid not in (None, '') else None
+
+    attempt, _ = DialAttempt.objects.get_or_create(
+        call_id=call_details.get('callid'),
+        defaults=dict(
+            call_date=call_details.get('calldate'),
+            call_type=call_details.get('calltype', ''),
+            powerlist_id=powerlist_id,
+            from_number=call_details.get('fromnumber164', ''),
+            to_number=call_details.get('tonumber164', ''),
+            agent_name=f"{call_details.get('fname', '')} {call_details.get('lname', '')}".strip(),
+            agent_email=call_details.get('email', ''),
+            agent_user_id=call_details.get('userid'),
+        ),
+    )
+    return attempt

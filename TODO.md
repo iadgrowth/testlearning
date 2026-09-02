@@ -2,7 +2,7 @@
 
 ## General
 
-- [ ] **Power Dial Stats webhook** — Create a new Kixie webhook that pulls dial count from Power Dial Stats, scoped per powerlist ID, for use in the overall campaign metrics dashboard
+- [x] **Power Dial Stats webhook** — Create a new Kixie webhook that pulls dial count from Power Dial Stats, scoped per powerlist ID, for use in the overall campaign metrics dashboard (code done — see Phase 1.6 below; still needs the webhook URL registered in Kixie's account settings)
 - [ ] **Kixie call dispositions setup**
   - [ ] Define and create all call dispositions that will be used in Kixie
   - [ ] Create a test Kixie powerlist to run through each disposition
@@ -29,6 +29,21 @@
   - [ ] Create a user account for that customer
   - [ ] Log in as that user → confirm dashboard shows correct data
 - [ ] Push Phase 1.5 code to Render
+
+---
+
+## Phase 1.6 — Power Dial Stats Webhook & Tracking
+
+Full plan: `docs/phase-1.6-implementation-plan.md`. Adds a `DialAttempt` table fed by
+Kixie's `startcall` webhook event, and repoints the "Total Dials" KPI at it (previously
+just counted dispositioned `CallReport` rows, undercounting no-answers/busy/voicemail).
+
+- [x] `DialAttempt` model + migration
+- [x] `create_dial_attempt_from_payload` + `/kixie/dial-attempt` webhook view
+- [x] Dashboard "Total Dials" KPI reads from `DialAttempt` instead of `CallReport`
+- [x] `testlearning.onrender.com` already in `DJANGO_ALLOWED_HOSTS` — confirmed via the existing `/kixie/test` webhook already working on that domain
+- [ ] Register `https://testlearning.onrender.com/kixie/dial-attempt` as the `startcall` hook event URL in Kixie's account settings
+- [ ] Confirm real webhook traffic lands correctly once registered (code-level smoke tests already passed locally)
 
 ---
 

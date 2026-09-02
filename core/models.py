@@ -73,3 +73,28 @@ class CallReport(models.Model):
 
     class Meta:
         ordering = ['-call_date']
+
+
+class DialAttempt(models.Model):
+    # One row per Kixie "startcall" webhook event -- fired the moment a line
+    # dials, independent of disposition. call_id is unique so webhook
+    # retries (or, during Power Dial multi-line dialing, distinct concurrent
+    # lines) can't double-count or collide.
+    call_id = models.CharField(max_length=100, unique=True)
+    call_date = models.DateTimeField()
+    call_type = models.CharField(max_length=20, blank=True)  # "outgoing" / "incoming"
+    powerlist_id = models.IntegerField(null=True, blank=True)
+
+    from_number = models.CharField(max_length=20, blank=True)
+    to_number = models.CharField(max_length=20, blank=True)
+    agent_name = models.CharField(max_length=200, blank=True)
+    agent_email = models.EmailField(blank=True)
+    agent_user_id = models.IntegerField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.call_id} ({self.call_type})"
+
+    class Meta:
+        ordering = ['-call_date']

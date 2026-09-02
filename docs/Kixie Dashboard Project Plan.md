@@ -35,6 +35,21 @@ A modern, sophisticated reporting platform for a cold-call lead generation busin
 
 ---
 
+### Phase 1.6: Power Dial Stats Webhook & Tracking
+
+**Goal:** Make "Total Dials" reflect real dial volume, not just dispositioned calls.
+
+- **Dial Attempt Tracking:** New `DialAttempt` table fed by Kixie's `startcall` webhook
+  event, which fires on every dial (including each line of a multi-line Power Dial
+  batch) independent of disposition.
+- **KPI Correction:** "Total Dials" on the Executive KPI Header now reads from this new
+  table, scoped by Powerlist ID like everything else — previously it counted `CallReport`
+  rows, which undercounts since no-answers/busy/voicemail never get a disposition.
+
+Full plan: `docs/phase-1.6-implementation-plan.md`.
+
+---
+
 ### Phase 2: Collaboration Layer
 
 **Goal:** Enable feedback loops while maintaining data integrity.
