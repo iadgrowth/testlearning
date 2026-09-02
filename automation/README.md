@@ -11,12 +11,24 @@ Playwright + browser binaries on the web server.
 
 ## Status
 
-Auth and CSV loading/validation are implemented and tested. The page objects
-that actually drive Kixie's PowerList creation/import/dial-settings/campaign
-screens (`kixie_powerlist/pages/`) are **stubs written against guessed
-selectors** — Kixie's real DOM hasn't been inspected yet. Every stub has a
-`TODO(discovery)` docstring flagging what needs confirming. See "Discovery"
-below before expecting an end-to-end run to work.
+Auth, CSV loading/validation, login, PowerList navigation/creation, dial
+mode (3-at-a-time only), and contact import + column mapping are implemented
+against a real discovery recording (`.artifacts/discovery_codegen.py`,
+gitignored). There is no separate campaign/team-assignment step in Kixie's
+UI — confirmed during discovery — so `--campaign` is metadata only, used in
+the printed result summary (and eventually a matching `CustomerPowerlist`
+row on the Django-app side), not a browser action.
+
+Still open, each flagged with `TODO(discovery)`:
+- `dial_settings_page.py`: only "3 at a time" has been recorded; "1 at a
+  time" raises `NotImplementedError` until it's confirmed.
+- `powerlist_create_page.py.get_created_powerlist_id`: confirmed the ID
+  appears somewhere on the resulting page after submit, but the exact
+  element hasn't been pinned down yet — raises `NotImplementedError`.
+- `powerlist_list_page.py`: the sidebar icon click before "PowerLists" may
+  not always be necessary (e.g. only when nav is collapsed).
+- Custom-field slot mapping (`Custom1`/`Custom2`/`Custom3`) is a best-effort
+  default, **not guaranteed** — see "Custom field mapping" below.
 
 ## Setup
 
@@ -36,40 +48,50 @@ KIXIE_PASSWORD=...
 KIXIE_BASE_URL=https://app.kixie.com   # adjust if different
 ```
 
-## Discovery (required before first real run)
+## Discovery
 
-The page objects were written against common UI patterns, not Kixie's actual
-markup. Before they'll work:
+First pass done — see "Status" above for what's confirmed vs. still open.
+To fill in a remaining `TODO(discovery)` spot, repeat the same process:
 
 1. Log into Kixie manually and run:
    ```bash
-   playwright codegen https://app.kixie.com
+   cd automation && source .venv/bin/activate
+   playwright codegen -o .artifacts/discovery_codegen.py https://app.kixie.com
    ```
-2. Walk through creating one PowerList by hand: name it, import a small CSV,
-   set the dial mode (1-at-a-time vs 3-at-a-time), assign a campaign.
-3. Use the recorded script's selectors to fill in the `TODO(discovery)` spots
-   in `kixie_powerlist/pages/*.py` — particularly:
-   - `powerlist_create_page.py`: real "create" form + `get_created_powerlist_id`
-     (currently raises `NotImplementedError`)
-   - `contact_import_page.py`: the real column-mapping UI for custom fields
-   - `dial_settings_page.py`: the actual 1-vs-3 control and labels
-   - `campaign_assignment_page.py`: whether assignment is same-screen or separate
+   The `-o` flag auto-saves the recorded script as you click, so nothing is
+   lost if the Inspector window just gets closed.
+2. Walk through the specific gap (e.g. select "1 at a time", or just look at
+   what appears on the page right after the final submit for the PowerList
+   ID).
+3. Read the saved script and update the relevant `pages/*.py` file.
+
+`.artifacts/discovery_codegen.py` is gitignored — it can capture real
+credentials if fields get filled in during recording. Strip any plaintext
+password from it after reading, since `.env` already holds it securely and
+there's no reason to leave a second copy on disk.
 
 ## Custom field mapping
 
-Kixie has 6 account-level custom fields. CSVs typically carry 3 extra columns
-that need to land in specific ones — commonly `Location`, `Website`, and
-`LinkedIn URL` — but the exact header wording varies between CSVs.
+Confirmed via discovery: Kixie's column-mapping UI targets generic slots
+(`Custom1`, `Custom2`, `Custom3`, ...), not semantic names. CSVs typically
+carry 3 extra columns that need to land in specific slots — commonly
+`Location` → `Custom1`, `Website` → `Custom2`, `LinkedIn URL` → `Custom3` —
+but **this isn't guaranteed**: the account owner confirmed those slots don't
+always hold that same data, and header wording varies between CSVs too.
 `kixie_powerlist/contacts.py` handles this with an alias table
 (`CUSTOM_FIELD_ALIASES`) rather than a fixed column list:
 
-- Known headers (and common variants) auto-map.
+- Known headers (and common variants) auto-map to their usual slot.
 - Anything it doesn't recognize fails loudly before any browser interaction,
   rather than silently dropping or mis-mapping a column.
+- **The CLI always prints the resolved header → slot mapping before
+  submitting** (see `_print_field_mapping` in `cli.py`) — check it against
+  `--dry-run` before ever running for real, since a wrong slot guess here
+  would misroute data into the wrong dashboard field silently.
 - One-off mismatches can be resolved without editing code via
-  `--field-map 'CSV Header=custom:Field Name'` (repeatable), e.g.:
+  `--field-map 'CSV Header=custom:CustomN'` (repeatable), e.g.:
   ```bash
-  --field-map 'Region=custom:Location'
+  --field-map 'Region=custom:Custom1'
   ```
 - Recurring new header spellings should be added to `STANDARD_FIELD_ALIASES` /
   `CUSTOM_FIELD_ALIASES` in `contacts.py` instead of relying on `--field-map`

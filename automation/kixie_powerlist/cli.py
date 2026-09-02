@@ -36,6 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _print_field_mapping(header_map: dict[str, tuple[str, str]]) -> None:
+    print("Column mapping (verify custom-field slots before a non-dry-run submit):")
+    for raw_header, (kind, canonical) in header_map.items():
+        print(f"  {raw_header!r} -> {kind}:{canonical}")
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s')
     args = build_parser().parse_args(argv)
@@ -46,6 +52,8 @@ def main(argv: list[str] | None = None) -> int:
     except ContactsCSVError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+    _print_field_mapping(loaded.header_map)
 
     spec = PowerlistSpec(
         name=args.name,

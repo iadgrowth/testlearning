@@ -14,18 +14,24 @@ STANDARD_FIELD_ALIASES: dict[str, list[str]] = {
     'job_title': ['title', 'job title'],
 }
 
-# Kixie has 6 account-level custom fields. In practice, 3 of them are the
-# ones CSVs regularly need mapped -- but the header spelling on any given
-# CSV varies (e.g. "LinkedIn" vs "LinkedIn URL"), so this is an alias table,
-# not a fixed column list.
+# Kixie's contact-import column mapper targets generic custom-field slots
+# ("Custom1".."Custom6"), not semantic names -- confirmed via discovery
+# recording (automation/.artifacts/discovery_codegen.py). The header
+# spelling on any given CSV varies (e.g. "LinkedIn" vs "LinkedIn URL"), so
+# this alias table maps recognizable header text to the slot it belongs in.
 #
-# TODO(discovery): confirm the exact custom-field names/IDs as they appear
-# in Kixie's own Custom Fields settings and contact-import mapping UI, and
-# fill in the remaining 3 slots if/when they're used.
+# NOT GUARANTEED: confirmed with the account owner that Custom1/2/3 are
+# usually Location/Website/LinkedIn URL, but not always -- other CSVs may
+# use those slots for something else entirely. These aliases are a
+# best-effort default, not a fixed rule. Because a wrong guess here would
+# silently misroute real client data, the CLI always prints the resolved
+# header -> slot mapping before submitting (see cli.py) so it can be
+# checked with --dry-run first. Use --field-map to override per run for
+# CSVs that don't match this default.
 CUSTOM_FIELD_ALIASES: dict[str, list[str]] = {
-    'Location': ['location', 'city', 'region'],
-    'Website': ['website', 'company website', 'url', 'domain'],
-    'LinkedIn URL': ['linkedin url', 'linkedin', 'li url', 'linkedin profile'],
+    'Custom1': ['location', 'city', 'region'],           # Location
+    'Custom2': ['website', 'company website', 'url', 'domain'],  # Website
+    'Custom3': ['linkedin url', 'linkedin', 'li url', 'linkedin profile'],  # LinkedIn URL
 }
 
 REQUIRED_STANDARD_FIELDS = {'phone_number'}

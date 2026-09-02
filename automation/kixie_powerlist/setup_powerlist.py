@@ -7,11 +7,15 @@ from playwright.sync_api import Page, Playwright
 from . import auth, config
 from .contacts import LoadedContacts
 from .models import PowerlistResult, PowerlistSpec
-from .pages.campaign_assignment_page import CampaignAssignmentPage
 from .pages.contact_import_page import ContactImportPage
 from .pages.dial_settings_page import DialSettingsPage
 from .pages.powerlist_create_page import PowerlistCreatePage
 from .pages.powerlist_list_page import PowerlistListPage
+
+# Confirmed via discovery: there's no Kixie-side campaign/team-assignment
+# step. spec.campaign is metadata only, used for the printed result summary
+# and (eventually) the matching CustomerPowerlist.campaign_name row on the
+# Django-app side -- it doesn't drive any browser action here.
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +35,16 @@ def create_powerlist(
             PowerlistListPage(page).goto()
             PowerlistListPage(page).click_create_new()
 
-            PowerlistCreatePage(page).create(spec.name)
+            PowerlistCreatePage(page).set_name(spec.name)
             DialSettingsPage(page).set_dial_mode(spec.dial_mode)
             ContactImportPage(page).upload(csv_path, loaded.header_map)
-            CampaignAssignmentPage(page).assign(spec.campaign)
 
             if spec.dry_run:
                 logger.info("Dry run: stopping before final submit for %r", spec.name)
                 powerlist_id = None
             else:
-                powerlist_id = PowerlistCreatePage(page).get_created_powerlist_id()
+                ContactImportPage(page).submit()
+                powerlist_id = PowerlistCreatePage(page).get_created_powerlist_id(spec.name)
         except Exception:
             _capture_failure_artifacts(page)
             raise
